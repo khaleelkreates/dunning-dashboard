@@ -1,17 +1,13 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { supabase } from './supabaseClient'
-import logo from './logo.png'  // Adjust filename if different
+import logo from './logo.png'
 
 export default function Dashboard({ user, onLogout }) {
   const [business, setBusiness] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
 
-  useEffect(() => {
-    fetchBusiness()
-  }, [])
-
-  const fetchBusiness = async () => {
+  const fetchBusiness = useCallback(async () => {
     const { data, error } = await supabase
       .from('businesses')
       .select('*')
@@ -24,7 +20,11 @@ export default function Dashboard({ user, onLogout }) {
       setBusiness(data)
     }
     setLoading(false)
-  }
+  }, [user.email])
+
+  useEffect(() => {
+    fetchBusiness()
+  }, [fetchBusiness])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -310,6 +310,3 @@ const styles = {
     animation: 'spin 1s linear infinite',
   },
 }
-
-// Add animation to the component (place this in a CSS file or style tag)
-// @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
