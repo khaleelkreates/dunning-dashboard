@@ -17,7 +17,7 @@ export default function InvoicesTab({ invoices, fetchInvoices, businessId }) {
       })
       
       if (response.ok) {
-        fetchInvoices()
+        await fetchInvoices()
       } else {
         alert('Error updating status')
       }
@@ -52,8 +52,8 @@ export default function InvoicesTab({ invoices, fetchInvoices, businessId }) {
     URL.revokeObjectURL(url)
   }
 
-  const handleSaveInvoice = async (invoiceData) => {
-    fetchInvoices()
+  const handleSaveInvoice = async () => {
+    await fetchInvoices()
   }
 
   return (

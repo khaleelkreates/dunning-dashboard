@@ -31,7 +31,7 @@ export default function InvoiceModal({ isOpen, onClose, onSave, businessId }) {
       const data = await response.json()
 
       if (data.success) {
-        onSave(form)
+        await onSave(form)
         onClose()
         setForm({ customerName: '', customerEmail: '', itemDescription: '', amount: '', dueDate: '' })
       } else {

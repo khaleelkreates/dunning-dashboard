@@ -19,11 +19,9 @@ export default function Dashboard({ user, onLogout }) {
     if (!error) setBusiness(data)
   }, [user.email])
 
-  const fetchInvoices = async () => {
+  const fetchInvoices = useCallback(async () => {
     try {
-      // For demo, fetch from your Google Sheets API
-      // This will be replaced with the actual API endpoint
-      const response = await fetch('/api/get-invoices?businessId=' + business?.id)
+      const response = await fetch('/api/get-invoices?businessId=' + (business?.id || ''))
       if (response.ok) {
         const data = await response.json()
         setInvoices(data.invoices || [])
@@ -33,7 +31,7 @@ export default function Dashboard({ user, onLogout }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [business?.id])
 
   useEffect(() => {
     fetchBusiness()
@@ -43,7 +41,7 @@ export default function Dashboard({ user, onLogout }) {
     if (business?.id) {
       fetchInvoices()
     }
-  }, [business])
+  }, [business, fetchInvoices])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
