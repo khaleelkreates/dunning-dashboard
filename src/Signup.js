@@ -13,19 +13,17 @@ export default function Signup() {
     setLoading(true)
     setMessage('')
 
-    // 1. Sign up user with Supabase Auth
     const { error: authError } = await supabase.auth.signUp({
       email,
       password,
     })
 
     if (authError) {
-      setMessage(`Auth error: ${authError.message}`)
+      setMessage(authError.message)
       setLoading(false)
       return
     }
 
-    // 2. Create business record
     const { error: businessError } = await supabase
       .from('businesses')
       .insert([
@@ -37,54 +35,105 @@ export default function Signup() {
       ])
 
     if (businessError) {
-      setMessage(`Business error: ${businessError.message}`)
+      setMessage(businessError.message)
       setLoading(false)
       return
     }
 
-    setMessage('✅ Account created! Check your email to confirm.')
+    setMessage('✅ Account created! You can now login.')
     setLoading(false)
+    // Clear form
+    setEmail('')
+    setPassword('')
+    setBusinessName('')
   }
 
   return (
-    <div style={{ maxWidth: 400, margin: '50px auto', padding: 20 }}>
-      <h2>Start Free Trial</h2>
-      <form onSubmit={handleSignup}>
-        <div>
-          <label>Business Name</label>
-          <input
-            type="text"
-            value={businessName}
-            onChange={(e) => setBusinessName(e.target.value)}
-            required
-            style={{ width: '100%', padding: 8, marginBottom: 15 }}
-          />
-        </div>
-        <div>
-          <label>Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            style={{ width: '100%', padding: 8, marginBottom: 15 }}
-          />
-        </div>
-        <div>
-          <label>Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={{ width: '100%', padding: 8, marginBottom: 15 }}
-          />
-        </div>
-        <button type="submit" disabled={loading} style={{ padding: '10px 20px' }}>
-          {loading ? 'Creating account...' : 'Start Free Trial'}
-        </button>
-      </form>
-      {message && <p style={{ marginTop: 20 }}>{message}</p>}
-    </div>
+    <form onSubmit={handleSignup} style={styles.form}>
+      <div style={styles.inputGroup}>
+        <label style={styles.label}>Business Name</label>
+        <input
+          type="text"
+          value={businessName}
+          onChange={(e) => setBusinessName(e.target.value)}
+          required
+          style={styles.input}
+          placeholder="Your Business Name"
+        />
+      </div>
+      <div style={styles.inputGroup}>
+        <label style={styles.label}>Email</label>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          style={styles.input}
+          placeholder="you@example.com"
+        />
+      </div>
+      <div style={styles.inputGroup}>
+        <label style={styles.label}>Password</label>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          style={styles.input}
+          placeholder="••••••••"
+        />
+      </div>
+      <button type="submit" disabled={loading} style={styles.button}>
+        {loading ? 'Creating account...' : 'Start Free Trial'}
+      </button>
+      {message && <p style={message.includes('✅') ? styles.successMessage : styles.errorMessage}>{message}</p>}
+    </form>
   )
+}
+
+const styles = {
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '20px',
+  },
+  inputGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+  },
+  label: {
+    fontSize: '14px',
+    fontWeight: '500',
+    color: '#333',
+  },
+  input: {
+    padding: '12px 16px',
+    fontSize: '16px',
+    border: '1px solid #ddd',
+    borderRadius: '8px',
+    outline: 'none',
+  },
+  button: {
+    backgroundColor: '#667eea',
+    color: 'white',
+    padding: '12px 24px',
+    fontSize: '16px',
+    fontWeight: 'bold',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+  },
+  errorMessage: {
+    color: '#e74c3c',
+    fontSize: '14px',
+    marginTop: '12px',
+    textAlign: 'center',
+  },
+  successMessage: {
+    color: '#27ae60',
+    fontSize: '14px',
+    marginTop: '12px',
+    textAlign: 'center',
+  },
 }
