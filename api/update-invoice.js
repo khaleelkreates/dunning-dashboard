@@ -7,6 +7,12 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
+function getPrivateKey() {
+  const key = process.env.GOOGLE_PRIVATE_KEY
+  if (!key) return undefined
+  return key.replace(/\\n/g, '\n')
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -34,7 +40,7 @@ export default async function handler(req, res) {
     const auth = new google.auth.GoogleAuth({
       credentials: {
         client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-        private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        private_key: getPrivateKey(),
       },
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     })
@@ -51,8 +57,8 @@ export default async function handler(req, res) {
     let rowIndex = -1
 
     for (let i = 1; i < rows.length; i++) {
-      if (rows[i][2] === invoiceNumber) { // Column C is Invoice Number
-        rowIndex = i + 1 // 1-indexed for update
+      if (rows[i][2] === invoiceNumber) {
+        rowIndex = i + 1
         break
       }
     }

@@ -1,14 +1,21 @@
 // api/provision-business.js
-import { google } from 'googleapis'
-import { createClient } from '@supabase/supabase-js'
+const { google } = require('googleapis')
+const { createClient } = require('@supabase/supabase-js')
 
 const supabase = createClient(
   'https://hiltlozttngjthpudyea.supabase.co',
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
+// Helper to fix private key format
+function getPrivateKey() {
+  const key = process.env.GOOGLE_PRIVATE_KEY
+  if (!key) return undefined
+  // Replace escaped newlines with actual newlines
+  return key.replace(/\\n/g, '\n')
+}
+
 export default async function handler(req, res) {
-  // Only allow POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
@@ -35,11 +42,10 @@ export default async function handler(req, res) {
       })
     }
 
-    // Authenticate with Google
     const auth = new google.auth.GoogleAuth({
       credentials: {
         client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-        private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        private_key: getPrivateKey(),
       },
       scopes: ['https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/spreadsheets'],
     })
@@ -96,7 +102,7 @@ export default async function handler(req, res) {
       },
     })
 
-    // Share sheet with business owner (optional)
+    // Share sheet with business owner
     if (ownerEmail) {
       try {
         await drive.permissions.create({
@@ -108,22 +114,18 @@ export default async function handler(req, res) {
           },
         })
       } catch (shareError) {
-        console.log('Sharing failed, but sheet exists:', shareError.message)
+        console.log('Sharing failed, but sheet exists')
       }
     }
 
     // Update Supabase with spreadsheet ID
-    const { error: updateError } = await supabase
+    await supabase
       .from('businesses')
       .update({ 
         spreadsheet_id: spreadsheetId,
         google_refresh_token: refreshToken || null,
       })
       .eq('id', businessId)
-
-    if (updateError) {
-      console.error('Failed to update Supabase:', updateError)
-    }
 
     return res.status(200).json({ 
       success: true, 
