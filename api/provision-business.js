@@ -1,18 +1,18 @@
 // api/provision-business.js
 const { google } = require('googleapis')
 const { createClient } = require('@supabase/supabase-js')
+const { JWT } = require('google-auth-library')
 
 const supabase = createClient(
   'https://hiltlozttngjthpudyea.supabase.co',
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-// Helper to fix private key format
 function getPrivateKey() {
   const key = process.env.GOOGLE_PRIVATE_KEY
   if (!key) return undefined
-  // Replace escaped newlines with actual newlines
-  return key.replace(/\\n/g, '\n')
+  // Remove quotes if present
+  return key.replace(/^"|"$/g, '').replace(/\\n/g, '\n')
 }
 
 export default async function handler(req, res) {
@@ -27,7 +27,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Check if business already has a spreadsheet
     const { data: existing } = await supabase
       .from('businesses')
       .select('spreadsheet_id')
@@ -42,16 +41,15 @@ export default async function handler(req, res) {
       })
     }
 
-    const auth = new google.auth.GoogleAuth({
-      credentials: {
-        client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-        private_key: getPrivateKey(),
-      },
+    // Create JWT client directly
+    const client = new JWT({
+      email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      key: getPrivateKey(),
       scopes: ['https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/spreadsheets'],
     })
 
-    const sheets = google.sheets({ version: 'v4', auth })
-    const drive = google.drive({ version: 'v3', auth })
+    const sheets = google.sheets({ version: 'v4', auth: client })
+    const drive = google.drive({ version: 'v3', auth: client })
 
     // Create new spreadsheet
     const spreadsheet = await sheets.spreadsheets.create({
@@ -69,7 +67,7 @@ export default async function handler(req, res) {
 
     const spreadsheetId = spreadsheet.data.spreadsheetId
 
-    // Add headers to Invoices sheet
+    // Add headers
     await sheets.spreadsheets.values.update({
       spreadsheetId,
       range: 'Invoices!A1:K1',
@@ -118,7 +116,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // Update Supabase with spreadsheet ID
+    // Update Supabase
     await supabase
       .from('businesses')
       .update({ 
