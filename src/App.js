@@ -16,6 +16,15 @@ function App() {
     setIsCallback(path === '/auth/callback')
   }, [])
 
+  // Handle hash fragment redirect (for OAuth callback)
+  useEffect(() => {
+    // Check if there's a hash fragment with access_token
+    if (window.location.hash && window.location.hash.includes('access_token')) {
+      // Redirect to callback page with the hash
+      window.location.href = '/auth/callback' + window.location.hash
+    }
+  }, [])
+
   // Check session and auth changes
   useEffect(() => {
     // Skip auth check if on callback page (callback handles it)
