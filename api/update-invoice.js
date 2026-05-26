@@ -1,4 +1,12 @@
 // api/update-invoice.js
+import { google } from 'googleapis'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+)
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -6,11 +14,67 @@ export default async function handler(req, res) {
 
   const { invoiceNumber, status, businessId } = req.body
 
-  if (!invoiceNumber || !status) {
+  if (!invoiceNumber || !status || !businessId) {
     return res.status(400).json({ error: 'Missing required fields' })
   }
 
-  console.log(`Updating invoice ${invoiceNumber} to status: ${status} for business ${businessId}`)
+  try {
+    // Get business's spreadsheet ID
+    const { data: business } = await supabase
+      .from('businesses')
+      .select('spreadsheet_id')
+      .eq('id', businessId)
+      .single()
 
-  return res.status(200).json({ success: true })
+    if (!business?.spreadsheet_id) {
+      return res.status(404).json({ error: 'Spreadsheet not found' })
+    }
+
+    // Authenticate with Google
+    const auth = new google.auth.GoogleAuth({
+      credentials: {
+        client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+        private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      },
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    })
+
+    const sheets = google.sheets({ version: 'v4', auth })
+
+    // Find the row with matching invoice number
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: business.spreadsheet_id,
+      range: 'Invoices!A:K',
+    })
+
+    const rows = response.data.values || []
+    let rowIndex = -1
+
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][2] === invoiceNumber) { // Column C is Invoice Number
+        rowIndex = i + 1 // 1-indexed for update
+        break
+      }
+    }
+
+    if (rowIndex === -1) {
+      return res.status(404).json({ error: 'Invoice not found' })
+    }
+
+    // Update status column (H = index 7)
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: business.spreadsheet_id,
+      range: `Invoices!H${rowIndex}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[status]],
+      },
+    })
+
+    return res.status(200).json({ success: true })
+
+  } catch (error) {
+    console.error('Update invoice error:', error)
+    return res.status(500).json({ error: error.message })
+  }
 }

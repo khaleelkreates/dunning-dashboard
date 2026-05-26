@@ -24,15 +24,18 @@ export default function AuthCallback() {
           .eq('owner_email', session.user.email)
           .single()
 
+        let businessId
+        let businessName
+
         if (!existingBusiness) {
           setMessage('Creating your account...')
           
           // Create new business record
-          const businessName = session.user.user_metadata?.full_name?.split(' ')[0] || 
-                               session.user.email?.split('@')[0] || 
-                               'My Business'
+          businessName = session.user.user_metadata?.full_name?.split(' ')[0] || 
+                         session.user.email?.split('@')[0] || 
+                         'My Business'
           
-          const { error: createError } = await supabase
+          const { data: newBusiness, error: createError } = await supabase
             .from('businesses')
             .insert([
               {
@@ -42,10 +45,34 @@ export default function AuthCallback() {
                 google_refresh_token: session.provider_refresh_token,
               }
             ])
+            .select()
+            .single()
 
           if (createError) throw createError
+          
+          businessId = newBusiness.id
+          
+          // Provision Google Sheet for new business
+          setMessage('Creating your Google Sheet...')
+          
+          const provisionResponse = await fetch('/api/provision-business', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              businessId: businessId,
+              businessName: businessName,
+              ownerEmail: session.user.email,
+              refreshToken: session.provider_refresh_token,
+            })
+          })
+          
+          if (!provisionResponse.ok) {
+            console.error('Provision failed, but continuing...')
+          }
+          
         } else {
           setMessage('Updating your account...')
+          businessId = existingBusiness.id
           
           // Update existing business with Google tokens
           await supabase

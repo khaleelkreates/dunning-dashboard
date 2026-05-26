@@ -1,30 +1,67 @@
 // api/get-invoices.js
+import { google } from 'googleapis'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+)
+
 export default async function handler(req, res) {
   const { businessId } = req.query
 
-  // Return demo data for now
-  const demoInvoices = [
-    {
-      'Customer Name': 'John Demo',
-      'Customer Email': 'john@demo.com',
-      'Invoice Number': 'INV-DEMO-001',
-      'Item Description': 'Web Development',
-      'Amount (₦)': 50000,
-      'Issue Date': '2026-05-01',
-      'Due Date': '2026-05-15',
-      'Status': 'Not Due'
-    },
-    {
-      'Customer Name': 'Jane Test',
-      'Customer Email': 'jane@test.com',
-      'Invoice Number': 'INV-DEMO-002',
-      'Item Description': 'Consulting',
-      'Amount (₦)': 125000,
-      'Issue Date': '2026-04-01',
-      'Due Date': '2026-04-20',
-      'Status': 'Overdue'
-    }
-  ]
+  if (!businessId) {
+    return res.status(400).json({ error: 'Business ID required' })
+  }
 
-  return res.status(200).json({ invoices: demoInvoices })
+  try {
+    // Get business's spreadsheet ID
+    const { data: business, error: businessError } = await supabase
+      .from('businesses')
+      .select('spreadsheet_id')
+      .eq('id', businessId)
+      .single()
+
+    if (businessError || !business?.spreadsheet_id) {
+      return res.status(200).json({ invoices: [], message: 'No sheet found' })
+    }
+
+    // Authenticate with Google
+    const auth = new google.auth.GoogleAuth({
+      credentials: {
+        client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+        private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      },
+      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+    })
+
+    const sheets = google.sheets({ version: 'v4', auth })
+
+    // Read data
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: business.spreadsheet_id,
+      range: 'Invoices!A:K',
+    })
+
+    const rows = response.data.values || []
+    
+    if (rows.length <= 1) {
+      return res.status(200).json({ invoices: [] })
+    }
+
+    const headers = rows[0]
+    const invoices = rows.slice(1).map(row => {
+      const invoice = {}
+      headers.forEach((header, index) => {
+        invoice[header] = row[index] || ''
+      })
+      return invoice
+    })
+
+    return res.status(200).json({ invoices })
+
+  } catch (error) {
+    console.error('Get invoices error:', error)
+    return res.status(500).json({ error: error.message })
+  }
 }
