@@ -15,45 +15,48 @@ export default function AuthCallback() {
         if (sessionError) throw sessionError
         if (!session) throw new Error('No session found')
 
-        setMessage('Creating your Google Sheet...')
+        setMessage('Welcome! Setting up your workspace...')
 
         // Check if business already exists
-        const { data: existingBusiness, error: fetchError } = await supabase
+        const { data: existingBusiness } = await supabase
           .from('businesses')
           .select('id, spreadsheet_id')
           .eq('owner_email', session.user.email)
           .single()
 
-        let businessId = existingBusiness?.id
-
         if (!existingBusiness) {
+          setMessage('Creating your account...')
+          
           // Create new business record
-          const { data: newBusiness, error: createError } = await supabase
+          const businessName = session.user.user_metadata?.full_name?.split(' ')[0] || 
+                               session.user.email?.split('@')[0] || 
+                               'My Business'
+          
+          const { error: createError } = await supabase
             .from('businesses')
             .insert([
               {
-                business_name: session.user.user_metadata?.full_name?.split(' ')[0] || session.user.email?.split('@')[0] || 'My Business',
+                business_name: businessName,
                 owner_email: session.user.email,
                 status: 'active',
                 google_refresh_token: session.provider_refresh_token,
               }
             ])
-            .select()
-            .single()
 
           if (createError) throw createError
-          businessId = newBusiness.id
         } else {
+          setMessage('Updating your account...')
+          
           // Update existing business with Google tokens
           await supabase
             .from('businesses')
             .update({
               google_refresh_token: session.provider_refresh_token,
             })
-            .eq('id', businessId)
+            .eq('id', existingBusiness.id)
         }
 
-        setMessage('Setting up your dashboard...')
+        setMessage('Redirecting to dashboard...')
         
         // Redirect to dashboard
         setTimeout(() => {
@@ -95,7 +98,7 @@ const styles = {
     alignItems: 'center',
     height: '100vh',
     backgroundColor: '#f5f7fa',
-    fontFamily: 'Arial, sans-serif',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   },
   spinner: {
     width: '50px',
@@ -124,6 +127,7 @@ const styles = {
     border: 'none',
     borderRadius: '8px',
     cursor: 'pointer',
+    fontSize: '14px',
   },
 }
 
