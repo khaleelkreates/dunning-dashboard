@@ -3,13 +3,24 @@ import { supabase } from './supabaseClient'
 import Signup from './Signup'
 import Login from './Login'
 import Dashboard from './Dashboard'
+import AuthCallback from './pages/auth/callback'
 
 function App() {
   const [user, setUser] = useState(null)
   const [showSignup, setShowSignup] = useState(false)
+  const [isCallback, setIsCallback] = useState(false)
+
+  // Check if we're on the callback route
+  useEffect(() => {
+    const path = window.location.pathname
+    setIsCallback(path === '/auth/callback')
+  }, [])
 
   // Check session and auth changes
   useEffect(() => {
+    // Skip auth check if on callback page (callback handles it)
+    if (isCallback) return
+
     // Check if user is already logged in
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
@@ -28,27 +39,23 @@ function App() {
         subscription.unsubscribe()
       }
     }
-  }, [])
+  }, [isCallback])
 
-  // Handle auth callback route
-  useEffect(() => {
-    const path = window.location.pathname
+  // Show callback page
+  if (isCallback) {
+    return <AuthCallback />
+  }
 
-    if (path === '/auth/callback') {
-      console.log('Handling auth callback...')
-      // Add callback handling logic here if needed
-    }
-  }, [])
-
+  // Show dashboard if logged in
   if (user) {
     return <Dashboard user={user} onLogout={() => setUser(null)} />
   }
 
+  // Show auth pages
   if (showSignup) {
     return (
       <div>
         <Signup />
-
         <p style={{ textAlign: 'center', marginTop: 20 }}>
           Already have an account?{' '}
           <button
@@ -56,8 +63,9 @@ function App() {
             style={{
               background: 'none',
               border: 'none',
-              color: 'blue',
+              color: '#1a1a2e',
               cursor: 'pointer',
+              fontWeight: 'bold',
             }}
           >
             Login
@@ -70,7 +78,6 @@ function App() {
   return (
     <div>
       <Login onLogin={(user) => setUser(user)} />
-
       <p style={{ textAlign: 'center', marginTop: 20 }}>
         Don't have an account?{' '}
         <button
@@ -78,8 +85,9 @@ function App() {
           style={{
             background: 'none',
             border: 'none',
-            color: 'blue',
+            color: '#1a1a2e',
             cursor: 'pointer',
+            fontWeight: 'bold',
           }}
         >
           Start Free Trial

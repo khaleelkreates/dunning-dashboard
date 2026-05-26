@@ -1,60 +1,88 @@
 // src/pages/auth/callback.js
 import { useEffect, useState } from 'react'
 import { supabase } from '../../supabaseClient'
-import { useNavigate } from 'react-router-dom'
 
 export default function AuthCallback() {
-  const navigate = useNavigate()
   const [message, setMessage] = useState('Setting up your account...')
+  const [status, setStatus] = useState('loading')
 
   useEffect(() => {
     const handleCallback = async () => {
-      // Get the current session
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      
-      if (sessionError || !session) {
-        setMessage('Error: Could not get session')
-        setTimeout(() => navigate('/'), 3000)
-        return
-      }
+      try {
+        // Get the session from Supabase
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        
+        if (sessionError) throw sessionError
+        if (!session) throw new Error('No session found')
 
-      const user = session.user
-      const providerToken = session.provider_token
-      const refreshToken = session.provider_refresh_token
+        setMessage('Creating your Google Sheet...')
 
-      setMessage('Creating your Google Sheet...')
+        // Check if business already exists
+        const { data: existingBusiness, error: fetchError } = await supabase
+          .from('businesses')
+          .select('id, spreadsheet_id')
+          .eq('owner_email', session.user.email)
+          .single()
 
-      // Call your provision API
-      const response = await fetch('/api/provision-business', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          businessId: user.id,
-          businessName: user.user_metadata?.full_name || user.email?.split('@')[0] || 'My Business',
-          ownerEmail: user.email,
-          accessToken: providerToken,
-          refreshToken: refreshToken,
-        })
-      })
+        let businessId = existingBusiness?.id
 
-      const data = await response.json()
+        if (!existingBusiness) {
+          // Create new business record
+          const { data: newBusiness, error: createError } = await supabase
+            .from('businesses')
+            .insert([
+              {
+                business_name: session.user.user_metadata?.full_name?.split(' ')[0] || session.user.email?.split('@')[0] || 'My Business',
+                owner_email: session.user.email,
+                status: 'active',
+                google_refresh_token: session.provider_refresh_token,
+              }
+            ])
+            .select()
+            .single()
 
-      if (data.success) {
-        setMessage('Account ready! Redirecting to dashboard...')
-        setTimeout(() => navigate('/dashboard'), 1500)
-      } else {
-        setMessage('Error: ' + data.error)
-        setTimeout(() => navigate('/'), 3000)
+          if (createError) throw createError
+          businessId = newBusiness.id
+        } else {
+          // Update existing business with Google tokens
+          await supabase
+            .from('businesses')
+            .update({
+              google_refresh_token: session.provider_refresh_token,
+            })
+            .eq('id', businessId)
+        }
+
+        setMessage('Setting up your dashboard...')
+        
+        // Redirect to dashboard
+        setTimeout(() => {
+          window.location.href = '/dashboard'
+        }, 1500)
+
+      } catch (err) {
+        console.error('Callback error:', err)
+        setMessage(`Error: ${err.message}`)
+        setStatus('error')
+        setTimeout(() => {
+          window.location.href = '/'
+        }, 3000)
       }
     }
 
     handleCallback()
-  }, [navigate])
+  }, [])
 
   return (
     <div style={styles.container}>
       <div style={styles.spinner}></div>
-      <p>{message}</p>
+      <h2 style={styles.title}>Smart Dunning Agent</h2>
+      <p style={styles.message}>{message}</p>
+      {status === 'error' && (
+        <button onClick={() => window.location.href = '/'} style={styles.button}>
+          Go Back
+        </button>
+      )}
     </div>
   )
 }
@@ -66,14 +94,45 @@ const styles = {
     justifyContent: 'center',
     alignItems: 'center',
     height: '100vh',
+    backgroundColor: '#f5f7fa',
+    fontFamily: 'Arial, sans-serif',
   },
   spinner: {
-    width: '40px',
-    height: '40px',
-    border: '4px solid #f3f3f3',
+    width: '50px',
+    height: '50px',
+    border: '4px solid #e0e0e0',
     borderTop: '4px solid #1a1a2e',
     borderRadius: '50%',
     animation: 'spin 1s linear infinite',
-    marginBottom: '20px',
+    marginBottom: '24px',
+  },
+  title: {
+    fontSize: '24px',
+    fontWeight: 'bold',
+    color: '#1a1a2e',
+    marginBottom: '12px',
+  },
+  message: {
+    fontSize: '16px',
+    color: '#666',
+    marginBottom: '24px',
+  },
+  button: {
+    padding: '10px 20px',
+    backgroundColor: '#1a1a2e',
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
   },
 }
+
+// Add animation
+const styleSheet = document.createElement("style")
+styleSheet.textContent = `
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`
+document.head.appendChild(styleSheet)
