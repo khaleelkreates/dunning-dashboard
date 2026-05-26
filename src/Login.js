@@ -132,6 +132,11 @@ const styles = {
     flexDirection: 'column',
     gap: '8px',
   },
+  label: {
+    fontSize: '14px',
+    fontWeight: '500',
+    color: '#333',
+  },
   input: {
     padding: '12px 16px',
     fontSize: '16px',

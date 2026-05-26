@@ -150,10 +150,6 @@ const styles = {
     textAlign: 'center',
     marginBottom: '32px',
   },
-  header: {
-    textAlign: 'center',
-    marginBottom: '32px',
-  },
   form: {
     display: 'flex',
     flexDirection: 'column',
@@ -228,7 +224,7 @@ const styles = {
   },
 }
 
-// Add input focus effect with style injection
+// Add input focus effect
 const styleSheet = document.createElement("style")
 styleSheet.textContent = `
   input:focus {
