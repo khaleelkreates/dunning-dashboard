@@ -57,7 +57,7 @@ export default function Signup() {
           'https://www.googleapis.com/auth/drive.file',
           'https://www.googleapis.com/auth/script.projects',
           'https://www.googleapis.com/auth/script.deployments',
-          'https://www.googleapis.com/auth/script.scriptapps'
+          'https://www.googleapis.com/auth/script.scriptapp'
         ].join(' '),
         redirectTo: `${window.location.origin}/auth/callback`
       }
