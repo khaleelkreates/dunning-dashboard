@@ -20,11 +20,25 @@ export default function Dashboard({ user, onLogout }) {
   }, [user.email])
 
   const fetchInvoices = useCallback(async () => {
+    if (!business?.id) return
+    
+    // Get current session for access token
+    const { data: { session } } = await supabase.auth.getSession()
+    const accessToken = session?.provider_token
+    
+    if (!accessToken) {
+      console.error('No access token available')
+      return
+    }
+    
     try {
-      const response = await fetch('/api/get-invoices?businessId=' + (business?.id || ''))
+      const response = await fetch(`/api/get-invoices?businessId=${business.id}&accessToken=${accessToken}`)
       if (response.ok) {
         const data = await response.json()
         setInvoices(data.invoices || [])
+      } else {
+        const error = await response.json()
+        console.error('Error fetching invoices:', error)
       }
     } catch (error) {
       console.error('Error fetching invoices:', error)

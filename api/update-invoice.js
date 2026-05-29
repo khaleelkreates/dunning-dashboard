@@ -1,26 +1,20 @@
 // api/update-invoice.js
-import { google } from 'googleapis'
-import { createClient } from '@supabase/supabase-js'
+const { google } = require('googleapis')
+const { createClient } = require('@supabase/supabase-js')
 
 const supabase = createClient(
   'https://hiltlozttngjthpudyea.supabase.co',
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-function getPrivateKey() {
-  const key = process.env.GOOGLE_PRIVATE_KEY
-  if (!key) return undefined
-  return key.replace(/\\n/g, '\n')
-}
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { invoiceNumber, status, businessId } = req.body
+  const { invoiceNumber, status, businessId, accessToken } = req.body
 
-  if (!invoiceNumber || !status || !businessId) {
+  if (!invoiceNumber || !status || !businessId || !accessToken) {
     return res.status(400).json({ error: 'Missing required fields' })
   }
 
@@ -36,14 +30,9 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'Spreadsheet not found' })
     }
 
-    // Authenticate with Google
-    const auth = new google.auth.GoogleAuth({
-      credentials: {
-        client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-        private_key: getPrivateKey(),
-      },
-      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    })
+    // Use the user's access token
+    const auth = new google.auth.OAuth2()
+    auth.setCredentials({ access_token: accessToken })
 
     const sheets = google.sheets({ version: 'v4', auth })
 

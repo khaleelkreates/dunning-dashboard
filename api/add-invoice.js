@@ -1,49 +1,38 @@
 // api/add-invoice.js
-import { google } from 'googleapis'
-import { createClient } from '@supabase/supabase-js'
+const { google } = require('googleapis')
+const { createClient } = require('@supabase/supabase-js')
 
 const supabase = createClient(
   'https://hiltlozttngjthpudyea.supabase.co',
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-function getPrivateKey() {
-  const key = process.env.GOOGLE_PRIVATE_KEY
-  if (!key) return undefined
-  return key.replace(/\\n/g, '\n')
-}
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { customerName, customerEmail, itemDescription, amount, dueDate, businessId } = req.body
+  const { customerName, customerEmail, itemDescription, amount, dueDate, businessId, accessToken } = req.body
 
-  if (!businessId || !customerName || !customerEmail || !itemDescription || !amount || !dueDate) {
-    return res.status(400).json({ error: 'Missing required fields' })
+  if (!businessId || !accessToken) {
+    return res.status(400).json({ error: 'Missing businessId or accessToken' })
   }
 
   try {
     // Get business's spreadsheet ID
-    const { data: business, error: businessError } = await supabase
+    const { data: business } = await supabase
       .from('businesses')
       .select('spreadsheet_id')
       .eq('id', businessId)
       .single()
 
-    if (businessError || !business?.spreadsheet_id) {
+    if (!business?.spreadsheet_id) {
       return res.status(404).json({ error: 'Spreadsheet not found for this business' })
     }
 
-    // Authenticate with Google
-    const auth = new google.auth.GoogleAuth({
-      credentials: {
-        client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-        private_key: getPrivateKey(),
-      },
-      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    })
+    // Use the user's access token
+    const auth = new google.auth.OAuth2()
+    auth.setCredentials({ access_token: accessToken })
 
     const sheets = google.sheets({ version: 'v4', auth })
 
@@ -57,16 +46,16 @@ export default async function handler(req, res) {
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: [[
-          customerName, 
-          customerEmail, 
-          invoiceNumber, 
-          itemDescription, 
-          amount, 
-          issueDate, 
-          dueDate, 
-          'Not Due', 
-          '', 
-          '', 
+          customerName,
+          customerEmail,
+          invoiceNumber,
+          itemDescription,
+          amount,
+          issueDate,
+          dueDate,
+          'Not Due',
+          '',
+          '',
           ''
         ]],
       },

@@ -1,25 +1,41 @@
 import React, { useState } from 'react'
+import { supabase } from './supabaseClient'
 import InvoiceModal from './InvoiceModal'
 
 export default function InvoicesTab({ invoices, fetchInvoices, businessId }) {
   const [showModal, setShowModal] = useState(false)
 
+  // Helper to get access token
+  const getAccessToken = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    return session?.provider_token
+  }
+
   const updateStatus = async (invoice, newStatus) => {
     try {
+      const accessToken = await getAccessToken()
+      
+      if (!accessToken) {
+        alert('No access token available. Please sign out and sign in again.')
+        return
+      }
+
       const response = await fetch('/api/update-invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           invoiceNumber: invoice['Invoice Number'],
           status: newStatus,
-          businessId: businessId
+          businessId: businessId,
+          accessToken: accessToken
         })
       })
       
       if (response.ok) {
         await fetchInvoices()
       } else {
-        alert('Error updating status')
+        const error = await response.json()
+        alert('Error updating status: ' + (error.error || 'Unknown error'))
       }
     } catch (error) {
       console.error('Error updating status:', error)

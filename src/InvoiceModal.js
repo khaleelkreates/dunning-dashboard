@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { supabase } from './supabaseClient'
 
 export default function InvoiceModal({ isOpen, onClose, onSave, businessId }) {
   const [form, setForm] = useState({
@@ -14,17 +15,31 @@ export default function InvoiceModal({ isOpen, onClose, onSave, businessId }) {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
 
+  const getAccessToken = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    return session?.provider_token
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
 
     try {
+      const accessToken = await getAccessToken()
+      
+      if (!accessToken) {
+        alert('No access token available. Please sign out and sign in again.')
+        setLoading(false)
+        return
+      }
+
       const response = await fetch('/api/add-invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
-          businessId: businessId
+          businessId: businessId,
+          accessToken: accessToken
         })
       })
 

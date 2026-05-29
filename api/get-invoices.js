@@ -1,49 +1,37 @@
 // api/get-invoices.js
-import { google } from 'googleapis'
-import { createClient } from '@supabase/supabase-js'
+const { google } = require('googleapis')
+const { createClient } = require('@supabase/supabase-js')
 
 const supabase = createClient(
   'https://hiltlozttngjthpudyea.supabase.co',
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-function getPrivateKey() {
-  const key = process.env.GOOGLE_PRIVATE_KEY
-  if (!key) return undefined
-  return key.replace(/\\n/g, '\n')
-}
-
 export default async function handler(req, res) {
-  const { businessId } = req.query
+  const { businessId, accessToken } = req.query
 
-  if (!businessId) {
-    return res.status(400).json({ error: 'Business ID required' })
+  if (!businessId || !accessToken) {
+    return res.status(400).json({ error: 'Missing businessId or accessToken' })
   }
 
   try {
     // Get business's spreadsheet ID
-    const { data: business, error: businessError } = await supabase
+    const { data: business } = await supabase
       .from('businesses')
       .select('spreadsheet_id')
       .eq('id', businessId)
       .single()
 
-    if (businessError || !business?.spreadsheet_id) {
+    if (!business?.spreadsheet_id) {
       return res.status(200).json({ invoices: [], message: 'No sheet found' })
     }
 
-    // Authenticate with Google
-    const auth = new google.auth.GoogleAuth({
-      credentials: {
-        client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-        private_key: getPrivateKey(),
-      },
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-    })
+    // Use the user's access token
+    const auth = new google.auth.OAuth2()
+    auth.setCredentials({ access_token: accessToken })
 
     const sheets = google.sheets({ version: 'v4', auth })
 
-    // Read data
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: business.spreadsheet_id,
       range: 'Invoices!A:K',
