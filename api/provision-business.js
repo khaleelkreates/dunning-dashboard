@@ -32,11 +32,14 @@ export default async function handler(req, res) {
       })
     }
 
+    // Use the user's access token directly
     const auth = new google.auth.OAuth2()
-    auth.setCredentials({ access_token: accessToken })
+    auth.setCredentials({
+      access_token: accessToken,
+      scope: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file'
+    })
 
     const sheets = google.sheets({ version: 'v4', auth })
-    const drive = google.drive({ version: 'v3', auth })
 
     // Create spreadsheet
     const spreadsheet = await sheets.spreadsheets.create({
@@ -87,22 +90,7 @@ export default async function handler(req, res) {
       },
     })
 
-    // Share with business owner
-    if (ownerEmail && ownerEmail !== 'khaleelakin111@gmail.com') {
-      try {
-        await drive.permissions.create({
-          fileId: spreadsheetId,
-          requestBody: {
-            type: 'user',
-            role: 'writer',
-            emailAddress: ownerEmail,
-          },
-        })
-      } catch (shareError) {
-        console.log('Sharing failed:', shareError.message)
-      }
-    }
-
+    // Store in Supabase
     await supabase
       .from('businesses')
       .update({ spreadsheet_id: spreadsheetId })
