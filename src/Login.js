@@ -34,10 +34,13 @@ export default function Login({ onLogin }) {
       provider: 'google',
       options: {
         scopes: [
-  'https://www.googleapis.com/auth/gmail.send',
-  'https://www.googleapis.com/auth/spreadsheets',
-  'https://www.googleapis.com/auth/drive.file'
-].join(' '),
+          'https://www.googleapis.com/auth/gmail.send',
+          'https://www.googleapis.com/auth/spreadsheets',
+          'https://www.googleapis.com/auth/drive.file',
+          'https://www.googleapis.com/auth/script.projects',
+          'https://www.googleapis.com/auth/script.deployments',
+          'https://www.googleapis.com/auth/script.scriptapps'
+        ].join(' '),
         redirectTo: `${window.location.origin}/auth/callback`
       }
     })
