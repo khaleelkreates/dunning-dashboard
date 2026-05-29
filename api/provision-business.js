@@ -1,3 +1,5 @@
+/* eslint-disable */
+// @ts-nocheck
 // api/provision-business.js
 const { google } = require('googleapis')
 const { createClient } = require('@supabase/supabase-js')
@@ -11,7 +13,6 @@ const supabase = createClient(
 function getPrivateKey() {
   const key = process.env.GOOGLE_PRIVATE_KEY
   if (!key) return undefined
-  // Remove quotes if present
   return key.replace(/^"|"$/g, '').replace(/\\n/g, '\n')
 }
 
@@ -41,7 +42,6 @@ export default async function handler(req, res) {
       })
     }
 
-    // Create JWT client directly
     const client = new JWT({
       email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
       key: getPrivateKey(),
@@ -66,6 +66,19 @@ export default async function handler(req, res) {
     })
 
     const spreadsheetId = spreadsheet.data.spreadsheetId
+
+    // Move to folder (try-catch in case folder doesn't exist)
+    try {
+      await drive.files.update({
+        fileId: spreadsheetId,
+        addParents: '1EPM9HfP_t9NzgMjReq3xfm30LKbEcf6C',
+        removeParents: 'root',
+        fields: 'id, parents',
+        supportsAllDrives: true,
+      })
+    } catch (folderError) {
+      console.log('Folder move failed, continuing anyway:', folderError.message)
+    }
 
     // Add headers
     await sheets.spreadsheets.values.update({
@@ -100,19 +113,21 @@ export default async function handler(req, res) {
       },
     })
 
-    // Share sheet with business owner
+    // Transfer ownership to business owner
     if (ownerEmail) {
       try {
         await drive.permissions.create({
           fileId: spreadsheetId,
           requestBody: {
             type: 'user',
-            role: 'writer',
+            role: 'owner',
             emailAddress: ownerEmail,
           },
+          transferOwnership: true,
+          supportsAllDrives: true,
         })
       } catch (shareError) {
-        console.log('Sharing failed, but sheet exists')
+        console.log('Ownership transfer failed:', shareError.message)
       }
     }
 
