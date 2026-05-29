@@ -62,12 +62,17 @@ export default function AuthCallback() {
               businessId: businessId,
               businessName: businessName,
               ownerEmail: session.user.email,
+              accessToken: session.provider_token,      // <-- ADD THIS
               refreshToken: session.provider_refresh_token,
             })
           })
           
           if (!provisionResponse.ok) {
-            console.error('Provision failed, but continuing...')
+            const errorText = await provisionResponse.text()
+            console.error('Provision failed:', errorText)
+          } else {
+            const data = await provisionResponse.json()
+            console.log('Provision success:', data)
           }
           
         } else {

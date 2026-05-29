@@ -1,30 +1,21 @@
-/* eslint-disable */
-// @ts-nocheck
 // api/provision-business.js
 const { google } = require('googleapis')
 const { createClient } = require('@supabase/supabase-js')
-const { JWT } = require('google-auth-library')
 
 const supabase = createClient(
   'https://hiltlozttngjthpudyea.supabase.co',
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-function getPrivateKey() {
-  const key = process.env.GOOGLE_PRIVATE_KEY
-  if (!key) return undefined
-  return key.replace(/^"|"$/g, '').replace(/\\n/g, '\n')
-}
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { businessId, businessName, ownerEmail, refreshToken } = req.body
+  const { businessId, businessName, ownerEmail, accessToken } = req.body
 
-  if (!businessId) {
-    return res.status(400).json({ error: 'Business ID required' })
+  if (!businessId || !accessToken) {
+    return res.status(400).json({ error: 'Missing businessId or accessToken' })
   }
 
   try {
@@ -37,21 +28,17 @@ export default async function handler(req, res) {
     if (existing?.spreadsheet_id) {
       return res.status(200).json({ 
         success: true, 
-        spreadsheetId: existing.spreadsheet_id,
-        message: 'Spreadsheet already exists' 
+        spreadsheetId: existing.spreadsheet_id 
       })
     }
 
-    const client = new JWT({
-      email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      key: getPrivateKey(),
-      scopes: ['https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/spreadsheets'],
-    })
+    const auth = new google.auth.OAuth2()
+    auth.setCredentials({ access_token: accessToken })
 
-    const sheets = google.sheets({ version: 'v4', auth: client })
-    const drive = google.drive({ version: 'v3', auth: client })
+    const sheets = google.sheets({ version: 'v4', auth })
+    const drive = google.drive({ version: 'v3', auth })
 
-    // Create new spreadsheet
+    // Create spreadsheet
     const spreadsheet = await sheets.spreadsheets.create({
       requestBody: {
         properties: { 
@@ -67,19 +54,6 @@ export default async function handler(req, res) {
 
     const spreadsheetId = spreadsheet.data.spreadsheetId
 
-    // Move to folder (try-catch in case folder doesn't exist)
-    try {
-      await drive.files.update({
-        fileId: spreadsheetId,
-        addParents: '1EPM9HfP_t9NzgMjReq3xfm30LKbEcf6C',
-        removeParents: 'root',
-        fields: 'id, parents',
-        supportsAllDrives: true,
-      })
-    } catch (folderError) {
-      console.log('Folder move failed, continuing anyway:', folderError.message)
-    }
-
     // Add headers
     await sheets.spreadsheets.values.update({
       spreadsheetId,
@@ -93,7 +67,7 @@ export default async function handler(req, res) {
       },
     })
 
-    // Add default settings
+    // Add settings
     await sheets.spreadsheets.values.update({
       spreadsheetId,
       range: 'Settings!A1:B9',
@@ -113,38 +87,28 @@ export default async function handler(req, res) {
       },
     })
 
-    // Transfer ownership to business owner
-    if (ownerEmail) {
+    // Share with business owner
+    if (ownerEmail && ownerEmail !== 'khaleelakin111@gmail.com') {
       try {
         await drive.permissions.create({
           fileId: spreadsheetId,
           requestBody: {
             type: 'user',
-            role: 'owner',
+            role: 'writer',
             emailAddress: ownerEmail,
           },
-          transferOwnership: true,
-          supportsAllDrives: true,
         })
       } catch (shareError) {
-        console.log('Ownership transfer failed:', shareError.message)
+        console.log('Sharing failed:', shareError.message)
       }
     }
 
-    // Update Supabase
     await supabase
       .from('businesses')
-      .update({ 
-        spreadsheet_id: spreadsheetId,
-        google_refresh_token: refreshToken || null,
-      })
+      .update({ spreadsheet_id: spreadsheetId })
       .eq('id', businessId)
 
-    return res.status(200).json({ 
-      success: true, 
-      spreadsheetId,
-      sheetUrl: `https://docs.google.com/spreadsheets/d/${spreadsheetId}`,
-    })
+    return res.status(200).json({ success: true, spreadsheetId })
 
   } catch (error) {
     console.error('Provision error:', error)
