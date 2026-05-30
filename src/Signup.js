@@ -2,7 +2,7 @@
 import React, { useState } from 'react'
 import { supabase } from './supabaseClient'
 
-export default function Signup() {
+export default function Signup({ onSwitchToLogin }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [businessName, setBusinessName] = useState('')
@@ -56,8 +56,7 @@ export default function Signup() {
           'https://www.googleapis.com/auth/spreadsheets',
           'https://www.googleapis.com/auth/drive.file',
           'https://www.googleapis.com/auth/script.projects',
-          'https://www.googleapis.com/auth/script.deployments',
-          'https://www.googleapis.com/auth/script.scriptapp'
+          'https://www.googleapis.com/auth/script.deployments'
         ].join(' '),
         redirectTo: `${window.location.origin}/auth/callback`
       }
@@ -131,6 +130,16 @@ export default function Signup() {
         </button>
 
         {message && <p style={message.includes('✅') ? styles.successMsg : styles.errorMsg}>{message}</p>}
+        
+        {/* Add login link */}
+        <div style={styles.loginPrompt}>
+          <p>
+            Already have an account?{' '}
+            <button onClick={onSwitchToLogin} style={styles.loginBtn}>
+              Login
+            </button>
+          </p>
+        </div>
       </div>
     </div>
   )
@@ -228,6 +237,20 @@ const styles = {
     fontSize: '14px',
     textAlign: 'center',
     marginTop: '20px',
+  },
+  loginPrompt: {
+    textAlign: 'center',
+    marginTop: '24px',
+    paddingTop: '16px',
+    borderTop: '1px solid #e0e0e0',
+  },
+  loginBtn: {
+    background: 'none',
+    border: 'none',
+    color: '#1a1a2e',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+    fontSize: '14px',
   },
 }
 

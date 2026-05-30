@@ -2,7 +2,7 @@
 import React, { useState } from 'react'
 import { supabase } from './supabaseClient'
 
-export default function Login({ onLogin }) {
+export default function Login({ onLogin, onSwitchToSignup }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -38,8 +38,7 @@ export default function Login({ onLogin }) {
           'https://www.googleapis.com/auth/spreadsheets',
           'https://www.googleapis.com/auth/drive.file',
           'https://www.googleapis.com/auth/script.projects',
-          'https://www.googleapis.com/auth/script.deployments',
-          'https://www.googleapis.com/auth/script.scriptapp'
+          'https://www.googleapis.com/auth/script.deployments'
         ].join(' '),
         redirectTo: `${window.location.origin}/auth/callback`
       }
@@ -102,6 +101,11 @@ export default function Login({ onLogin }) {
         </button>
 
         {message && <p style={styles.errorMsg}>{message}</p>}
+        
+        {/* New: Create Account Link */}
+        <div style={styles.signupPrompt}>
+          <p>Don't have an account? <button onClick={onSwitchToSignup} style={styles.signupBtn}>Create Account</button></p>
+        </div>
       </div>
     </div>
   )
@@ -188,5 +192,19 @@ const styles = {
     fontSize: '14px',
     textAlign: 'center',
     marginTop: '20px',
+  },
+  signupPrompt: {
+    textAlign: 'center',
+    marginTop: '24px',
+    paddingTop: '16px',
+    borderTop: '1px solid #e0e0e0',
+  },
+  signupBtn: {
+    background: 'none',
+    border: 'none',
+    color: '#1a1a2e',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+    fontSize: '14px',
   },
 }
