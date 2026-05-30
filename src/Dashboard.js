@@ -33,26 +33,21 @@ export default function Dashboard({ user, onLogout }) {
   }, [user.email])
 
   const fetchInvoices = useCallback(async () => {
-    if (!business?.id) return
+    if (!business?.id) {
+      setLoading(false)
+      return
+    }
     
     const { data: { session } } = await supabase.auth.getSession()
     const accessToken = session?.provider_token
     
-    if (!accessToken) {
-      console.error('No access token available')
-      return
-    }
-    
     try {
-      const response = await fetch(`/api/get-invoices?businessId=${business.id}&accessToken=${accessToken}`)
-      if (response.ok) {
-        const data = await response.json()
-        setInvoices(data.invoices || [])
-      } else {
-        console.error('Error fetching invoices:', await response.json())
-      }
+      const response = await fetch(`/api/get-invoices?businessId=${business.id}&accessToken=${accessToken || ''}`)
+      const data = await response.json()
+      setInvoices(data.invoices || [])
     } catch (error) {
       console.error('Error fetching invoices:', error)
+      setInvoices([])
     } finally {
       setLoading(false)
     }
@@ -86,7 +81,13 @@ export default function Dashboard({ user, onLogout }) {
 
   useEffect(() => {
     if (business?.id) {
-      fetchInvoices()
+      if (!business.spreadsheet_id) {
+        // No sheet linked, stop loading and show empty state
+        setLoading(false)
+        setInvoices([])
+      } else {
+        fetchInvoices()
+      }
     }
   }, [business, fetchInvoices])
 
@@ -116,9 +117,8 @@ export default function Dashboard({ user, onLogout }) {
     return dueDate < new Date()
   }).length
 
-  // Calculate reminders sent (from log or estimate based on emails)
+  // Calculate reminders sent
   const remindersSent = invoices.reduce((count, inv) => {
-    // If there's a last email sent date, count it as at least 1
     if (inv['Last Email Sent Date'] && inv['Last Email Sent Date'] !== '') {
       return count + 1
     }

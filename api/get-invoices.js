@@ -10,8 +10,9 @@ const supabase = createClient(
 export default async function handler(req, res) {
   const { businessId, accessToken } = req.query
 
-  if (!businessId || !accessToken) {
-    return res.status(400).json({ error: 'Missing businessId or accessToken' })
+  // Business ID is required
+  if (!businessId) {
+    return res.status(400).json({ error: 'Business ID required' })
   }
 
   try {
@@ -22,8 +23,20 @@ export default async function handler(req, res) {
       .eq('id', businessId)
       .single()
 
+    // If no spreadsheet ID, return empty immediately (no token needed)
     if (!business?.spreadsheet_id) {
-      return res.status(200).json({ invoices: [], message: 'No sheet found' })
+      return res.status(200).json({ 
+        invoices: [], 
+        message: 'No sheet linked yet' 
+      })
+    }
+
+    // If we have a sheet but no access token, return empty
+    if (!accessToken) {
+      return res.status(200).json({ 
+        invoices: [], 
+        message: 'Access token required to fetch sheet data' 
+      })
     }
 
     // Use the user's access token
@@ -56,6 +69,9 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Get invoices error:', error)
-    return res.status(500).json({ error: error.message })
+    return res.status(200).json({ 
+      invoices: [], 
+      error: error.message 
+    })
   }
 }
