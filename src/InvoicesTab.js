@@ -4,8 +4,9 @@ import InvoiceModal from './InvoiceModal'
 
 export default function InvoicesTab({ invoices, fetchInvoices, businessId }) {
   const [showModal, setShowModal] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
 
-  // Helper to get access token
   const getAccessToken = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     return session?.provider_token
@@ -14,12 +15,10 @@ export default function InvoicesTab({ invoices, fetchInvoices, businessId }) {
   const updateStatus = async (invoice, newStatus) => {
     try {
       const accessToken = await getAccessToken()
-      
       if (!accessToken) {
         alert('No access token available. Please sign out and sign in again.')
         return
       }
-
       const response = await fetch('/api/update-invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -30,7 +29,6 @@ export default function InvoicesTab({ invoices, fetchInvoices, businessId }) {
           accessToken: accessToken
         })
       })
-      
       if (response.ok) {
         await fetchInvoices()
       } else {
@@ -72,6 +70,11 @@ export default function InvoicesTab({ invoices, fetchInvoices, businessId }) {
     await fetchInvoices()
   }
 
+  // Pagination calculations
+  const totalPages = Math.ceil(invoices.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const paginatedInvoices = invoices.slice(startIndex, startIndex + itemsPerPage)
+
   return (
     <div>
       <div style={styles.header}>
@@ -95,12 +98,12 @@ export default function InvoicesTab({ invoices, fetchInvoices, businessId }) {
             </tr>
           </thead>
           <tbody>
-            {invoices.length === 0 ? (
+            {paginatedInvoices.length === 0 ? (
               <tr>
                 <td colSpan="7" style={styles.emptyRow}>No invoices yet. Click "+ New Invoice" to add.</td>
               </tr>
             ) : (
-              invoices.map((inv, idx) => (
+              paginatedInvoices.map((inv, idx) => (
                 <tr key={idx}>
                   <td>{inv['Customer Name']}</td>
                   <td>{inv['Invoice Number']}</td>
@@ -125,9 +128,24 @@ export default function InvoicesTab({ invoices, fetchInvoices, businessId }) {
         </table>
       </div>
 
-      <InvoiceModal 
-        isOpen={showModal} 
-        onClose={() => setShowModal(false)} 
+      {totalPages > 1 && (
+        <div style={styles.pagination}>
+          <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} style={styles.pageBtn}>«</button>
+          <button onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1} style={styles.pageBtn}>‹</button>
+          <span style={styles.pageInfo}>Page {currentPage} of {totalPages}</span>
+          <button onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage === totalPages} style={styles.pageBtn}>›</button>
+          <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} style={styles.pageBtn}>»</button>
+          <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1) }} style={styles.perPageSelect}>
+            <option value={10}>10 per page</option>
+            <option value={25}>25 per page</option>
+            <option value={50}>50 per page</option>
+          </select>
+        </div>
+      )}
+
+      <InvoiceModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
         onSave={handleSaveInvoice}
         businessId={businessId}
       />
@@ -194,5 +212,31 @@ const styles = {
     textAlign: 'center',
     padding: '40px',
     color: '#999',
+  },
+  pagination: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: '8px',
+    marginTop: '20px',
+    padding: '10px',
+  },
+  pageBtn: {
+    padding: '6px 12px',
+    backgroundColor: '#1a1a2e',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+  },
+  pageInfo: {
+    fontSize: '14px',
+    color: '#666',
+  },
+  perPageSelect: {
+    marginLeft: '16px',
+    padding: '6px',
+    borderRadius: '6px',
+    border: '1px solid #ddd',
   },
 }
